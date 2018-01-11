@@ -83,17 +83,6 @@ public class MainVerticle extends AbstractVerticle {
     router.post("/create").handler(this::pageCreateHandler);
     router.post("/delete").handler(this::pageDeleteHandler);
 
-    server.requestHandler(router::accept)
-      .listen(8080, ar -> {
-        if (ar.succeeded()) {
-          LOGGER.info("Http server running on port 8080");
-          future.complete();
-        } else {
-          LOGGER.error("Could not start a HTTP server", ar.cause());
-          future.fail(ar.cause());
-        }
-      });
-
     return future;
   }
 
