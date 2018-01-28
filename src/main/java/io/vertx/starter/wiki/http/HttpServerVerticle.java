@@ -1,15 +1,17 @@
-package io.vertx.starter;
+package io.vertx.starter.wiki.http;
 
 import com.github.rjeschke.txtmark.Processor;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
-import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.Handler;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.templ.FreeMarkerTemplateEngine;
+import io.vertx.starter.wiki.database.WikiDatabaseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +28,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   private final FreeMarkerTemplateEngine templateEngine = FreeMarkerTemplateEngine.create();
 
+  private WikiDatabaseService dbService;
+
   @Override
   public void start(Future<Void> startFuture) throws Exception {
     wikiDbQueue = config().getString(CONFIG_WIKIDB_QUEUE, wikiDbQueue);
+
+    dbService = WikiDatabaseService.createProxy(vertx, wikiDbQueue);
 
     HttpServer server = vertx.createHttpServer();
 
@@ -56,13 +62,10 @@ public class HttpServerVerticle extends AbstractVerticle {
   }
 
   private void indexHandler(RoutingContext context) {
-    DeliveryOptions deliveryOptions = new DeliveryOptions().addHeader("action", "all-pages");
-
-    vertx.eventBus().send(wikiDbQueue, new JsonObject(), deliveryOptions, reply -> {
+    this.dbService.fetchAllPages(reply -> {
       if (reply.succeeded()) {
-        JsonObject body = (JsonObject) reply.result().body();
         context.put("title", "Wiki home");
-        context.put("pages", body.getJsonArray("pages").getList());
+        context.put("pages", reply.result().getList());
         templateEngine.render(context, "templates", "/index.ftl", ar -> {
           if (ar.succeeded()) {
             context.response().putHeader("Content-Type", "text/html");
@@ -79,10 +82,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   private void pageDeleteHandler(RoutingContext context) {
     String id = context.request().getParam("id");
-    JsonObject jsonObject = new JsonObject().put("id", id);
-    DeliveryOptions deliveryOptions = new DeliveryOptions().addHeader("action", "delete-page");
-    vertx.eventBus().send(wikiDbQueue, jsonObject, deliveryOptions, reply -> {
-
+    this.dbService.deletePage(Integer.valueOf(id), reply -> {
       if (reply.succeeded()) {
         context.response().setStatusCode(303);
         context.response().putHeader("Location", "/");
@@ -107,19 +107,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   private void pageUpdateHandler(RoutingContext context) {
     String title = context.request().getParam("title");
-    String id = context.request().getParam("id");
-    String markdown = context.request().getParam("markdown");
-    String newPage = context.request().getParam("newPage");
 
-    JsonObject jsonObject = new JsonObject().put("title", title).put("id", id).put("markdown", markdown);
-    DeliveryOptions deliveryOptions = new DeliveryOptions();
-    if (newPage.equals("yes")) {
-      deliveryOptions.addHeader("action", "create-page");
-    } else {
-      deliveryOptions.addHeader("action", "save-page");
-    }
-
-    vertx.eventBus().send(wikiDbQueue, jsonObject, deliveryOptions, reply -> {
+    Handler<AsyncResult<Void>> handler = reply -> {
       if (reply.succeeded()) {
         context.response().setStatusCode(303);
         context.response().putHeader("Location", "/wiki/" + title);
@@ -127,8 +116,15 @@ public class HttpServerVerticle extends AbstractVerticle {
       } else {
         context.fail(reply.cause());
       }
-    });
+    };
 
+    String markdown = context.request().getParam("markdown");
+    if (context.request().getParam("newPage").equals("yes")) {
+      dbService.createPage(title, markdown, handler);
+    } else {
+      String id = context.request().getParam("id");
+      dbService.savePage(Integer.valueOf(id), markdown, handler);
+    }
   }
 
   private static final String EMPTY_PAGE_MARKDOWN =
@@ -138,18 +134,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   private void pageRenderingHandler(RoutingContext context) {
     String requestedPage = context.request().getParam("page");
-    JsonObject request = new JsonObject().put("page", requestedPage);
-
-    DeliveryOptions options = new DeliveryOptions().addHeader("action", "get-page");
-    vertx.eventBus().send(wikiDbQueue, request, options, reply -> {
-
+    this.dbService.fetchPage(requestedPage, reply -> {
       if (reply.succeeded()) {
-        JsonObject body = (JsonObject) reply.result().body();
+        JsonObject payload = reply.result();
 
-        boolean found = body.getBoolean("found");
-        String rawContent = body.getString("rawContent", EMPTY_PAGE_MARKDOWN);
+        boolean found = payload.getBoolean("found");
+        String rawContent = payload.getString("rawContent", EMPTY_PAGE_MARKDOWN);
         context.put("title", requestedPage);
-        context.put("id", body.getInteger("id", -1));
+        context.put("id", payload.getInteger("id", -1));
         context.put("newPage", found ? "no" : "yes");
         context.put("rawContent", rawContent);
         context.put("content", Processor.process(rawContent));

@@ -1,8 +1,9 @@
-package io.vertx.starter;
+package io.vertx.starter.wiki;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.starter.wiki.database.WikiDabaseVerticle;
 
 public class MainVerticle extends AbstractVerticle {
   @Override
@@ -12,7 +13,7 @@ public class MainVerticle extends AbstractVerticle {
 
     deploymentFuture.compose(s -> {
       Future<String> httpVerticleDeployment = Future.future();
-      vertx.deployVerticle("io.vertx.starter.HttpServerVerticle",
+      vertx.deployVerticle("io.vertx.starter.wiki.http.HttpServerVerticle",
         new DeploymentOptions().setInstances(2),
         httpVerticleDeployment.completer());
       return httpVerticleDeployment;
