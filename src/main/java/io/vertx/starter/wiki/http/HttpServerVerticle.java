@@ -31,7 +31,7 @@ public class HttpServerVerticle extends AbstractVerticle {
   private WikiDatabaseService dbService;
 
   @Override
-  public void start(Future<Void> startFuture) throws Exception {
+  public void start(Future<Void> startFuture) {
     wikiDbQueue = config().getString(CONFIG_WIKIDB_QUEUE, wikiDbQueue);
 
     dbService = WikiDatabaseService.createProxy(vertx, wikiDbQueue);

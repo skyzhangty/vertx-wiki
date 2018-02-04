@@ -17,8 +17,8 @@ import java.util.stream.Collectors;
 
 public class WikiDatabaseServiceImpl implements WikiDatabaseService {
   private static final Logger LOGGER = LoggerFactory.getLogger(WikiDatabaseServiceImpl.class);
-  private JDBCClient jdbcClient;
-  private HashMap<SqlQuery, String> sqlQueries;
+  private final JDBCClient jdbcClient;
+  private final HashMap<SqlQuery, String> sqlQueries;
 
   public WikiDatabaseServiceImpl(JDBCClient jdbcClient, HashMap<SqlQuery, String> sqlQueries, Handler<AsyncResult<WikiDatabaseService>> resultHandler) {
     this.jdbcClient = jdbcClient;

@@ -14,7 +14,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Properties;
 
-public class WikiDabaseVerticle extends AbstractVerticle {
+public class WikiDatabaseVerticle extends AbstractVerticle {
 
   public static final String CONFIG_WIKIDB_JDBC_URL = "wikidb.jdbc.url";
   public static final String CONFIG_WIKIDB_JDBC_DRIVER_CLASS = "wikidb.jdbc.driver_class";
@@ -23,10 +23,8 @@ public class WikiDabaseVerticle extends AbstractVerticle {
 
   public static final String CONFIG_WIKIDB_QUEUE = "wikidb.queue";
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(WikiDabaseVerticle.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(WikiDatabaseVerticle.class);
 
-
-  private JDBCClient jdbcClient;
 
   @Override
   public void start(Future<Void> startFuture) throws Exception {
@@ -37,9 +35,9 @@ public class WikiDabaseVerticle extends AbstractVerticle {
       .put("driver_class", config().getString(CONFIG_WIKIDB_JDBC_DRIVER_CLASS, "org.hsqldb.jdbcDriver"))
       .put("max_pool_size", config().getInteger(CONFIG_WIKIDB_JDBC_MAX_POOL_SIZE, 30));
 
-    jdbcClient = JDBCClient.createShared(vertx, jdbcConfig);
+    JDBCClient jdbcClient = JDBCClient.createShared(vertx, jdbcConfig);
 
-    WikiDatabaseService.create(this.jdbcClient, sqlQueries, result -> {
+    WikiDatabaseService.create(jdbcClient, sqlQueries, result -> {
       if (result.succeeded()) {
         WikiDatabaseService service = result.result();
         ServiceBinder serviceBinder = new ServiceBinder(vertx);
