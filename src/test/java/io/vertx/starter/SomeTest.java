@@ -1,11 +1,15 @@
 package io.vertx.starter;
 
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
 import io.vertx.starter.wiki.database.WikiDatabaseService;
 import io.vertx.starter.wiki.database.WikiDatabaseVerticle;
 import org.junit.After;
@@ -75,6 +79,28 @@ public class SomeTest {
           }));
         }));
       }));
+    }));
+  }
+
+  @Test
+  public void testWebClient(TestContext testContext) {
+    Async async = testContext.async();
+    vertx.createHttpServer().requestHandler(
+      req -> req.response().putHeader("Content-Type", "text/plain").end("OK")
+    ).listen(8080, testContext.asyncAssertSuccess(server -> {
+      WebClient webClient = WebClient.create(vertx);
+      webClient.get(8080, "localhost", "/").send(asyncResult -> {
+        if (asyncResult.succeeded()) {
+          HttpResponse<Buffer> httpResponse = asyncResult.result();
+          testContext.assertTrue(httpResponse.headers().contains("Content-Type"));
+          testContext.assertEquals("text/plain", httpResponse.getHeader("Content-Type"));
+          testContext.assertEquals("OK", httpResponse.body().toString());
+          webClient.close();
+          async.complete();
+        } else {
+          async.resolve(Future.failedFuture(asyncResult.cause()));
+        }
+      });
     }));
   }
 }

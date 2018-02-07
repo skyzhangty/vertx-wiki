@@ -122,4 +122,18 @@ public class WikiDatabaseServiceImpl implements WikiDatabaseService {
     });
     return this;
   }
+
+  @Override
+  public WikiDatabaseService fetchAllPagesData(Handler<AsyncResult<List<JsonObject>>> resultHandler) {
+    this.jdbcClient.query(this.sqlQueries.get(SqlQuery.ALL_PAGES_DATA), fetch -> {
+      if (fetch.succeeded()) {
+        List<JsonObject> rows = fetch.result().getRows();
+        resultHandler.handle(Future.succeededFuture(rows));
+      } else {
+        LOGGER.error("fetch all pages data failed", fetch.cause());
+        resultHandler.handle(Future.failedFuture(fetch.cause()));
+      }
+    });
+    return this;
+  }
 }
